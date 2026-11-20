@@ -1,0 +1,114 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll([
+          'uid',
+          'email',
+          'namaLengkap',
+          'nip',
+          'sekolah',
+          'mataPelajaran',
+          'kelas',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid',
+          'email',
+          'namaLengkap',
+          'nip',
+          'sekolah',
+          'mataPelajaran',
+          'kelas',
+          'photoURL',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.uid is string
+        && data.uid == userId
+        && data.uid == request.auth.uid
+        && isValidId(data.uid)
+        && data.email is string
+        && data.email.size() >= 3
+        && data.email.size() <= 254
+        && data.namaLengkap is string
+        && data.namaLengkap.size() >= 1
+        && data.namaLengkap.size() <= 120
+        && data.nip is string
+        && data.nip.size() <= 30
+        && data.nip.matches('^[0-9\\s\\-]*$')
+        && data.sekolah is string
+        && data.sekolah.size() >= 1
+        && data.sekolah.size() <= 150
+        && data.mataPelajaran is string
+        && data.mataPelajaran.size() >= 1
+        && data.mataPelajaran.size() <= 100
+        && data.kelas is string
+        && data.kelas.size() >= 1
+        && data.kelas.size() <= 60
+        && (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 500))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && isOwner(userId);
+      allow list: if false;
+      allow create: if isVerifiedUser()
+        && isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser()
+        && isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'namaLengkap',
+          'nip',
+          'sekolah',
+          'mataPelajaran',
+          'kelas',
+          'email',
+          'photoURL',
+          'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+  }
+}

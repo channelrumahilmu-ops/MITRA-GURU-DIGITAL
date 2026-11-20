@@ -1,0 +1,90 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "Profil Guru",
+      "description": "Data profil pendidik yang disimpan per pengguna berdasarkan Firebase UID.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Authentication UID pemilik profil.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Alamat email akun Google guru.",
+          "minLength": 3,
+          "maxLength": 254
+        },
+        "namaLengkap": {
+          "type": "string",
+          "description": "Nama lengkap beserta gelar guru.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "nip": {
+          "type": "string",
+          "description": "Nomor Induk Pegawai (opsional/kosong jika belum memiliki).",
+          "minLength": 0,
+          "maxLength": 30,
+          "pattern": "^[0-9\\s\\-]*$"
+        },
+        "sekolah": {
+          "type": "string",
+          "description": "Nama satuan pendidikan / sekolah tempat mengajar.",
+          "minLength": 1,
+          "maxLength": 150
+        },
+        "mataPelajaran": {
+          "type": "string",
+          "description": "Mata pelajaran yang diampu.",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "kelas": {
+          "type": "string",
+          "description": "Tingkat kelas / fase yang diajar.",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "URL foto profil Google (opsional).",
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp server saat profil pertama kali dibuat."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp server saat profil terakhir diperbarui."
+        }
+      },
+      "required": [
+        "uid",
+        "email",
+        "namaLengkap",
+        "nip",
+        "sekolah",
+        "mataPelajaran",
+        "kelas",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "Dokumen profil guru pribadi yang diindeks dengan Firebase UID."
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "RuangGuru Digital",
+  "description": "Platform produktivitas guru Indonesia dengan Google Sign-In, profil pendidik, pengaturan Gemini API Key BYOK, dan modul administrasi pembelajaran.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
