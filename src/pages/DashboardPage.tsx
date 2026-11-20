@@ -23,36 +23,42 @@ const MODULES = [
     description: 'Penyusunan Rencana Pembelajaran Mendalam dan Modul Ajar terstruktur.',
     path: '/administrasi/modul-ajar',
     icon: BookOpen,
+    available: false,
   },
   {
     title: 'Analisis CP, TP dan ATP',
     description: 'Pemetaan Capaian Pembelajaran menjadi Tujuan dan Alur Tujuan Pembelajaran.',
     path: '/administrasi/analisis-cp',
     icon: Compass,
+    available: false,
   },
   {
     title: 'Generator LKPD',
     description: 'Perancangan Lembar Kerja Peserta Didik beserta rubrik penilaian.',
     path: '/administrasi/lkpd',
     icon: FileSpreadsheet,
+    available: false,
   },
   {
     title: 'Modul Kokurikuler',
     description: 'Perencanaan proyek dan kegiatan kokurikuler lintas disiplin.',
     path: '/administrasi/kokurikuler',
     icon: FolderKanban,
+    available: false,
   },
   {
     title: 'Generator Soal',
     description: 'Penyusunan instrumen evaluasi formatif dan sumatif.',
     path: '/administrasi/generator-soal',
     icon: ClipboardList,
+    available: true,
   },
   {
     title: 'Bank Soal',
     description: 'Arsip soal terklasifikasi berdasarkan mata pelajaran dan kelas.',
     path: '/administrasi/bank-soal',
     icon: Archive,
+    available: false,
   },
 ] as const;
 
@@ -194,8 +200,12 @@ export function DashboardPage() {
                     {mod.description}
                   </p>
                 </div>
-                <span className="text-xs font-medium text-slate-500">
-                  Segera hadir
+                <span
+                  className={`text-xs font-medium ${
+                    mod.available ? 'text-teal-700' : 'text-slate-500'
+                  }`}
+                >
+                  {mod.available ? 'Tersedia' : 'Segera hadir'}
                 </span>
               </Link>
             );

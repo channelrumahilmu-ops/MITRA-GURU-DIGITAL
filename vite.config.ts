@@ -5,7 +5,35 @@ import path from 'path';
 import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
+  const appletConfigPath = path.resolve(__dirname, 'firebase-applet-config.json');
+  const appletConfig = fs.existsSync(appletConfigPath)
+    ? JSON.parse(fs.readFileSync(appletConfigPath, 'utf-8'))
+    : {};
+
   return {
+    define: {
+      'process.env.NEXT_PUBLIC_FIREBASE_API_KEY': JSON.stringify(
+        process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? appletConfig.apiKey ?? ''
+      ),
+      'process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN': JSON.stringify(
+        process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ?? appletConfig.authDomain ?? ''
+      ),
+      'process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID': JSON.stringify(
+        process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? appletConfig.projectId ?? ''
+      ),
+      'process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET': JSON.stringify(
+        process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ?? appletConfig.storageBucket ?? ''
+      ),
+      'process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID': JSON.stringify(
+        process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ?? appletConfig.messagingSenderId ?? ''
+      ),
+      'process.env.NEXT_PUBLIC_FIREBASE_APP_ID': JSON.stringify(
+        process.env.NEXT_PUBLIC_FIREBASE_APP_ID ?? appletConfig.appId ?? ''
+      ),
+      'process.env.NEXT_PUBLIC_FIREBASE_DATABASE_ID': JSON.stringify(
+        process.env.NEXT_PUBLIC_FIREBASE_DATABASE_ID ?? appletConfig.firestoreDatabaseId ?? ''
+      ),
+    },
     plugins: [
       react(),
       tailwindcss(),
