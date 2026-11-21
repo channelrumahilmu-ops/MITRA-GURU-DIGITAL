@@ -14,6 +14,7 @@ import { ProfilPage } from './pages/ProfilPage';
 import { AdministrasiPlaceholderPage } from './pages/AdministrasiPlaceholderPage';
 import { GeneratorSoalPage } from './pages/GeneratorSoalPage';
 import { BankSoalPage } from './pages/BankSoalPage';
+import { ModulAjarPage } from './pages/ModulAjarPage';
 
 function ProtectedShell({ children }: { children: React.ReactNode }) {
   return (
@@ -53,7 +54,7 @@ export default function App() {
               path="/administrasi/modul-ajar"
               element={
                 <ProtectedShell>
-                  <AdministrasiPlaceholderPage name="Modul Ajar/RPM" />
+                  <ModulAjarPage />
                 </ProtectedShell>
               }
             />

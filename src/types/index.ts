@@ -141,3 +141,89 @@ export const BANK_SOAL_LIMITS = {
   maxSoalCount: 100,
   pertanyaanMaxLength: 10000,
 } as const;
+
+export interface ModulAjarFormValues {
+  satuanPendidikan: string;
+  mataPelajaran: string;
+  kelasSemester: string;
+  fase: string;
+  alokasiWaktu: string;
+  jumlahPertemuan: string;
+  penyusun: string;
+  capaianPembelajaran: string;
+  topikMateri: string;
+  tujuanPembelajaran: string;
+  karakteristikMurid: string;
+  dimensiProfilLulusan: string[];
+  modelPembelajaran: string;
+  metodePembelajaran: string[];
+  asesmen: string;
+}
+
+export interface GeneratedModulAjarResult {
+  judul_modul: string;
+  identitas: {
+    satuan_pendidikan: string;
+    mata_pelajaran: string;
+    kelas_semester: string;
+    fase: string;
+    alokasi_waktu: string;
+    jumlah_pertemuan: string;
+    penyusun: string;
+  };
+  analisis_pembelajaran: {
+    capaian_pembelajaran: string;
+    topik_materi: string;
+    tujuan_pembelajaran: string[];
+    karakteristik_murid: string;
+  };
+  desain_pembelajaran: {
+    dimensi_profil_lulusan: string[];
+    model_pembelajaran: string;
+    metode_pembelajaran: string[];
+  };
+  pengalaman_belajar: {
+    pendahuluan: string[];
+    kegiatan_inti: string[];
+    penutup: string[];
+  };
+  asesmen: {
+    jenis: string;
+    bentuk_instrumen: string;
+  };
+}
+
+export const BANK_MODUL_LIMITS = {
+  judulMaxLength: 250,
+  identitas: {
+    satuanPendidikanMaxLength: 200,
+    mataPelajaranMaxLength: 150,
+    kelasSemesterMaxLength: 100,
+    faseMaxLength: 50,
+    alokasiWaktuMaxLength: 120,
+    jumlahPertemuanMaxLength: 100,
+    penyusunMaxLength: 150,
+  },
+  analisis: {
+    capaianMaxLength: 5000,
+    topikMaxLength: 500,
+    tujuanMaxItems: 30,
+    karakteristikMaxLength: 3000,
+  },
+  desain: {
+    dimensiMaxItems: 10,
+    modelMaxLength: 150,
+    metodeMaxItems: 20,
+  },
+  pengalaman: {
+    pendahuluanMaxItems: 30,
+    kegiatanIntiMaxItems: 50,
+    penutupMaxItems: 30,
+  },
+  asesmen: {
+    jenisMaxLength: 100,
+    instrumenMaxLength: 5000,
+  },
+  itemStringMaxLength: 3000,
+} as const;
+

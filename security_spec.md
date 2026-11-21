@@ -10,17 +10,19 @@
 7. Dokumen pada `/bank_soal/{soalId}` hanya boleh dibaca (`get`, `list`), dibuat (`create`), dan dihapus (`delete`) oleh pemiliknya (`userId == request.auth.uid`).
 8. Query `list` pada `/bank_soal` wajib dibatasi secara langsung oleh rule `resource.data.userId == request.auth.uid`.
 9. Field `soal` pada `/bank_soal` dibatasi maksimal 100 item (`size() >= 1 && size() <= 100`) dan elemen pertamanya diverifikasi bertipe `map`.
+10. Dokumen pada `/bank_modul/{modulId}` hanya boleh dibaca (`get`, `list`), dibuat (`create`), dan dihapus (`delete`) oleh pemiliknya (`userId == request.auth.uid`).
+11. Query `list` pada `/bank_modul` wajib dibatasi secara langsung oleh rule `resource.data.userId == request.auth.uid`, dan seluruh nested map (`identitas`, `analisis_pembelajaran`, `desain_pembelajaran`, `pengalaman_belajar`, `asesmen`) serta daftar string divalidasi ukuran dan tipe datanya.
 
 ## 2. The "Dirty Dozen" Attack Payloads
-1. Unauthenticated read (`request.auth == null`) pada `/users/{uid}` atau `/bank_soal/{id}` -> PERMISSION_DENIED.
-2. Cross-user read (`request.auth.uid != userId`) pada `/users/{otherUid}` atau `/bank_soal/{otherDoc}` -> PERMISSION_DENIED.
+1. Unauthenticated read (`request.auth == null`) pada `/users/{uid}`, `/bank_soal/{id}`, atau `/bank_modul/{id}` -> PERMISSION_DENIED.
+2. Cross-user read (`request.auth.uid != userId`) pada `/users/{otherUid}`, `/bank_soal/{otherDoc}`, atau `/bank_modul/{otherDoc}` -> PERMISSION_DENIED.
 3. Collection list scraping (`getDocs(collection(db, 'users'))`) -> PERMISSION_DENIED.
-4. Unbounded list query (`getDocs(collection(db, 'bank_soal'))` tanpa `where('userId', '==', uid)`) -> PERMISSION_DENIED.
-5. Unverified email write (`email_verified == false`) pada `/users/{uid}` atau `/bank_soal/{id}` -> PERMISSION_DENIED.
+4. Unbounded list query (`getDocs(collection(db, 'bank_soal'))` atau `bank_modul` tanpa `where('userId', '==', uid)`) -> PERMISSION_DENIED.
+5. Unverified email write (`email_verified == false`) pada `/users/{uid}`, `/bank_soal/{id}`, atau `/bank_modul/{id}` -> PERMISSION_DENIED.
 6. Identity spoofing saat create (`data.uid != request.auth.uid` atau `data.userId != request.auth.uid`) -> PERMISSION_DENIED.
 7. Shadow field injection (`isAdmin: true`, `role: 'admin'`) saat create/update -> PERMISSION_DENIED.
-8. Oversized string resource poisoning (`namaLengkap` > 120 chars atau `meta.judul` > 200 chars) -> PERMISSION_DENIED.
-9. Oversized array / invalid element pada `bank_soal.soal` (`soal: []` atau `soal.size() > 100` atau `soal: ["raw"]`) -> PERMISSION_DENIED.
+8. Oversized string resource poisoning (`namaLengkap` > 120 chars, `meta.judul` > 200 chars, atau `judul_modul` > 250 chars) -> PERMISSION_DENIED.
+9. Oversized array / invalid element pada `bank_soal.soal` atau `bank_modul.pengalaman_belajar.kegiatan_inti` (`[]` atau melebihi batas atau tipe elemen salah) -> PERMISSION_DENIED.
 10. Client-forged timestamp (`createdAt` != `request.time` saat create) -> PERMISSION_DENIED.
 11. Immutable `createdAt` atau `uid` tampering saat update -> PERMISSION_DENIED.
-12. Invalid document ID path (`soalId` > 128 chars atau karakter terlarang) -> PERMISSION_DENIED.
+12. Invalid document ID path (`soalId` / `modulId` > 128 chars atau karakter terlarang) -> PERMISSION_DENIED.

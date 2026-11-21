@@ -133,6 +133,127 @@
         }
       },
       "required": ["userId", "createdAt", "meta", "soal"]
+    },
+    "ModulAjarIdentitas": {
+      "title": "Identitas Modul Ajar",
+      "description": "Informasi identitas satuan pendidikan, mapel, fase, jumlah pertemuan, dan penyusun modul ajar.",
+      "type": "object",
+      "properties": {
+        "satuan_pendidikan": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "mata_pelajaran": { "type": "string", "minLength": 1, "maxLength": 150 },
+        "kelas_semester": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "fase": { "type": "string", "minLength": 1, "maxLength": 50 },
+        "alokasi_waktu": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "jumlah_pertemuan": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "penyusun": { "type": "string", "minLength": 1, "maxLength": 150 }
+      },
+      "required": [
+        "satuan_pendidikan",
+        "mata_pelajaran",
+        "kelas_semester",
+        "fase",
+        "alokasi_waktu",
+        "jumlah_pertemuan",
+        "penyusun"
+      ]
+    },
+    "ModulAjarAnalisis": {
+      "title": "Analisis Pembelajaran Modul Ajar",
+      "description": "Capaian pembelajaran, topik materi, tujuan pembelajaran, dan karakteristik murid.",
+      "type": "object",
+      "properties": {
+        "capaian_pembelajaran": { "type": "string", "maxLength": 5000 },
+        "topik_materi": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "tujuan_pembelajaran": { "type": "array" },
+        "karakteristik_murid": { "type": "string", "maxLength": 3000 }
+      },
+      "required": [
+        "capaian_pembelajaran",
+        "topik_materi",
+        "tujuan_pembelajaran",
+        "karakteristik_murid"
+      ]
+    },
+    "ModulAjarDesain": {
+      "title": "Desain Pembelajaran Modul Ajar",
+      "description": "8 Dimensi Profil Lulusan, model pembelajaran, dan metode pembelajaran.",
+      "type": "object",
+      "properties": {
+        "dimensi_profil_lulusan": { "type": "array" },
+        "model_pembelajaran": { "type": "string", "minLength": 1, "maxLength": 150 },
+        "metode_pembelajaran": { "type": "array" }
+      },
+      "required": ["dimensi_profil_lulusan", "model_pembelajaran", "metode_pembelajaran"]
+    },
+    "ModulAjarPengalaman": {
+      "title": "Pengalaman Belajar Modul Ajar",
+      "description": "Langkah kegiatan pendahuluan, kegiatan inti, dan penutup.",
+      "type": "object",
+      "properties": {
+        "pendahuluan": { "type": "array" },
+        "kegiatan_inti": { "type": "array" },
+        "penutup": { "type": "array" }
+      },
+      "required": ["pendahuluan", "kegiatan_inti", "penutup"]
+    },
+    "ModulAjarAsesmen": {
+      "title": "Asesmen Modul Ajar",
+      "description": "Jenis asesmen dan bentuk instrumen penilaian.",
+      "type": "object",
+      "properties": {
+        "jenis": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "bentuk_instrumen": { "type": "string", "minLength": 1, "maxLength": 5000 }
+      },
+      "required": ["jenis", "bentuk_instrumen"]
+    },
+    "ModulAjarDocument": {
+      "title": "Dokumen Bank Modul Ajar",
+      "description": "Modul ajar/RPM hasil generator yang disimpan guru ke koleksi bank_modul.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Authentication UID pemilik modul ajar.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp server saat modul ajar disimpan."
+        },
+        "judul_modul": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 250
+        },
+        "identitas": {
+          "$ref": "#/entities/ModulAjarIdentitas"
+        },
+        "analisis_pembelajaran": {
+          "$ref": "#/entities/ModulAjarAnalisis"
+        },
+        "desain_pembelajaran": {
+          "$ref": "#/entities/ModulAjarDesain"
+        },
+        "pengalaman_belajar": {
+          "$ref": "#/entities/ModulAjarPengalaman"
+        },
+        "asesmen": {
+          "$ref": "#/entities/ModulAjarAsesmen"
+        }
+      },
+      "required": [
+        "userId",
+        "createdAt",
+        "judul_modul",
+        "identitas",
+        "analisis_pembelajaran",
+        "desain_pembelajaran",
+        "pengalaman_belajar",
+        "asesmen"
+      ]
     }
   },
   "firestore": {
@@ -147,6 +268,12 @@
         "$ref": "#/entities/BankSoalDocument"
       },
       "description": "Koleksi paket soal tersimpan milik masing-masing guru."
+    },
+    "/bank_modul/{modulId}": {
+      "schema": {
+        "$ref": "#/entities/ModulAjarDocument"
+      },
+      "description": "Koleksi modul ajar / RPM tersimpan milik masing-masing guru."
     }
   }
 }

@@ -1,7 +1,7 @@
 import { GoogleGenAI, Type, type Schema } from '@google/genai';
 
 const GEMINI_MODEL = 'gemini-4-hydrogen';
-const REQUEST_TIMEOUT_MS = 45_000;
+const REQUEST_TIMEOUT_MS = 60_000;
 const MAX_TRANSIENT_RETRIES = 2;
 const ALL_KEYS_FAILED_ERROR = 'Semua API key tidak valid atau kuota habis';
 
@@ -113,6 +113,105 @@ export const SOAL_JSON_SCHEMA: Schema = {
     },
   },
   required: ['meta', 'soal'],
+};
+
+export const MODUL_AJAR_JSON_SCHEMA: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    judul_modul: { type: Type.STRING },
+    identitas: {
+      type: Type.OBJECT,
+      properties: {
+        satuan_pendidikan: { type: Type.STRING },
+        mata_pelajaran: { type: Type.STRING },
+        kelas_semester: { type: Type.STRING },
+        fase: { type: Type.STRING },
+        alokasi_waktu: { type: Type.STRING },
+        jumlah_pertemuan: { type: Type.STRING },
+        penyusun: { type: Type.STRING },
+      },
+      required: [
+        'satuan_pendidikan',
+        'mata_pelajaran',
+        'kelas_semester',
+        'fase',
+        'alokasi_waktu',
+        'jumlah_pertemuan',
+        'penyusun',
+      ],
+    },
+    analisis_pembelajaran: {
+      type: Type.OBJECT,
+      properties: {
+        capaian_pembelajaran: { type: Type.STRING },
+        topik_materi: { type: Type.STRING },
+        tujuan_pembelajaran: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+        },
+        karakteristik_murid: { type: Type.STRING },
+      },
+      required: [
+        'capaian_pembelajaran',
+        'topik_materi',
+        'tujuan_pembelajaran',
+        'karakteristik_murid',
+      ],
+    },
+    desain_pembelajaran: {
+      type: Type.OBJECT,
+      properties: {
+        dimensi_profil_lulusan: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+        },
+        model_pembelajaran: { type: Type.STRING },
+        metode_pembelajaran: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+        },
+      },
+      required: [
+        'dimensi_profil_lulusan',
+        'model_pembelajaran',
+        'metode_pembelajaran',
+      ],
+    },
+    pengalaman_belajar: {
+      type: Type.OBJECT,
+      properties: {
+        pendahuluan: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+        },
+        kegiatan_inti: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+        },
+        penutup: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+        },
+      },
+      required: ['pendahuluan', 'kegiatan_inti', 'penutup'],
+    },
+    asesmen: {
+      type: Type.OBJECT,
+      properties: {
+        jenis: { type: Type.STRING },
+        bentuk_instrumen: { type: Type.STRING },
+      },
+      required: ['jenis', 'bentuk_instrumen'],
+    },
+  },
+  required: [
+    'judul_modul',
+    'identitas',
+    'analisis_pembelajaran',
+    'desain_pembelajaran',
+    'pengalaman_belajar',
+    'asesmen',
+  ],
 };
 
 async function invokeGeminiWithTimeout(

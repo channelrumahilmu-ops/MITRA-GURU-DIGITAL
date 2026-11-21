@@ -18,6 +18,7 @@ import { saveAs } from 'file-saver';
 import type {
   ExamIdentity,
   GeneratedExamResult,
+  GeneratedModulAjarResult,
   GeneratedSoalItem,
   GeneratedSoalOptions,
 } from '../types';
@@ -1032,3 +1033,554 @@ export function exportToPdf(
   saveAs(blob, filename);
   return filename;
 }
+
+// ============================================================================
+// WORD (.docx) EXPORT — MODUL AJAR / RPM
+// ============================================================================
+
+function makeSectionHeading(title: string): Paragraph {
+  return new Paragraph({
+    spacing: { before: 240, after: 100 },
+    children: [
+      new TextRun({
+        text: title,
+        bold: true,
+        size: 24,
+        color: '0F172A',
+      }),
+    ],
+  });
+}
+
+function makeSubHeading(title: string): Paragraph {
+  return new Paragraph({
+    spacing: { before: 140, after: 60 },
+    children: [
+      new TextRun({
+        text: title,
+        bold: true,
+        size: 21,
+        color: '0F766E',
+      }),
+    ],
+  });
+}
+
+function makeBodyParagraph(text: string): Paragraph {
+  return new Paragraph({
+    spacing: { before: 40, after: 80 },
+    children: [
+      new TextRun({
+        text: text || '-',
+        size: 20,
+        color: '1E293B',
+      }),
+    ],
+  });
+}
+
+function makeNumberedList(items: string[]): Paragraph[] {
+  const safeItems = items.filter((item) => item && item.trim().length > 0);
+  if (safeItems.length === 0) {
+    return [makeBodyParagraph('-')];
+  }
+  return safeItems.map(
+    (item, idx) =>
+      new Paragraph({
+        indent: { left: 360, hanging: 240 },
+        spacing: { before: 30, after: 50 },
+        children: [
+          new TextRun({
+            text: `${idx + 1}. `,
+            bold: true,
+            size: 20,
+            color: '0F172A',
+          }),
+          new TextRun({
+            text: item.trim(),
+            size: 20,
+            color: '1E293B',
+          }),
+        ],
+      })
+  );
+}
+
+function makeBulletList(items: string[]): Paragraph[] {
+  const safeItems = items.filter((item) => item && item.trim().length > 0);
+  if (safeItems.length === 0) {
+    return [makeBodyParagraph('-')];
+  }
+  return safeItems.map(
+    (item) =>
+      new Paragraph({
+        indent: { left: 360, hanging: 200 },
+        spacing: { before: 30, after: 50 },
+        children: [
+          new TextRun({
+            text: '•  ',
+            bold: true,
+            size: 20,
+            color: '0F766E',
+          }),
+          new TextRun({
+            text: item.trim(),
+            size: 20,
+            color: '1E293B',
+          }),
+        ],
+      })
+  );
+}
+
+export async function exportModulAjarToWord(
+  modul: GeneratedModulAjarResult
+): Promise<string> {
+  const { identitas, analisis_pembelajaran, desain_pembelajaran, pengalaman_belajar, asesmen } =
+    modul;
+
+  const identitasTable = new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: FULL_TABLE_BORDERS,
+    rows: [
+      new TableRow({
+        children: [
+          makeCell('Satuan Pendidikan', { header: true, widthPct: 24 }),
+          makeCell(identitas.satuan_pendidikan || '-', { widthPct: 26 }),
+          makeCell('Fase', { header: true, widthPct: 20 }),
+          makeCell(identitas.fase || '-', { widthPct: 30 }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          makeCell('Mata Pelajaran', { header: true }),
+          makeCell(identitas.mata_pelajaran || '-'),
+          makeCell('Alokasi Waktu', { header: true }),
+          makeCell(identitas.alokasi_waktu || '-'),
+        ],
+      }),
+      new TableRow({
+        children: [
+          makeCell('Kelas / Semester', { header: true }),
+          makeCell(identitas.kelas_semester || '-'),
+          makeCell('Jumlah Pertemuan', { header: true }),
+          makeCell(identitas.jumlah_pertemuan || '-'),
+        ],
+      }),
+      new TableRow({
+        children: [
+          makeCell('Penyusun', { header: true }),
+          makeCell(identitas.penyusun || '-', { columnSpan: 3 }),
+        ],
+      }),
+    ],
+  });
+
+  const children: Array<Paragraph | Table> = [
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 60 },
+      children: [
+        new TextRun({
+          text: 'MODUL AJAR / RENCANA PEMBELAJARAN MENDALAM',
+          bold: true,
+          size: 22,
+          color: '475569',
+        }),
+      ],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 200 },
+      children: [
+        new TextRun({
+          text: modul.judul_modul || 'Modul Ajar',
+          bold: true,
+          size: 28,
+          color: '0F172A',
+        }),
+      ],
+    }),
+
+    makeSectionHeading('A. Identitas Modul'),
+    identitasTable,
+
+    makeSectionHeading('B. Analisis Pembelajaran'),
+    makeSubHeading('1. Capaian Pembelajaran (CP)'),
+    makeBodyParagraph(analisis_pembelajaran.capaian_pembelajaran),
+    makeSubHeading('2. Topik / Materi Pembelajaran'),
+    makeBodyParagraph(analisis_pembelajaran.topik_materi),
+    makeSubHeading('3. Tujuan Pembelajaran (TP)'),
+    ...makeNumberedList(analisis_pembelajaran.tujuan_pembelajaran || []),
+    makeSubHeading('4. Karakteristik Murid'),
+    makeBodyParagraph(analisis_pembelajaran.karakteristik_murid || '-'),
+
+    makeSectionHeading('C. Desain Pembelajaran'),
+    makeSubHeading('1. 8 Dimensi Profil Lulusan'),
+    ...makeBulletList(desain_pembelajaran.dimensi_profil_lulusan || []),
+    makeSubHeading('2. Model Pembelajaran'),
+    makeBodyParagraph(desain_pembelajaran.model_pembelajaran),
+    makeSubHeading('3. Metode Pembelajaran'),
+    ...makeBulletList(desain_pembelajaran.metode_pembelajaran || []),
+
+    makeSectionHeading('D. Pengalaman Belajar'),
+    makeSubHeading('1. Kegiatan Pendahuluan'),
+    ...makeNumberedList(pengalaman_belajar.pendahuluan || []),
+    makeSubHeading('2. Kegiatan Inti'),
+    ...makeNumberedList(pengalaman_belajar.kegiatan_inti || []),
+    makeSubHeading('3. Kegiatan Penutup'),
+    ...makeNumberedList(pengalaman_belajar.penutup || []),
+
+    makeSectionHeading('E. Asesmen'),
+    makeSubHeading('1. Jenis Asesmen'),
+    makeBodyParagraph(asesmen.jenis),
+    makeSubHeading('2. Bentuk Instrumen & Rubrik'),
+    makeBodyParagraph(asesmen.bentuk_instrumen),
+  ];
+
+  const doc = new Document({
+    sections: [
+      {
+        properties: {
+          page: {
+            margin: {
+              top: 1134,
+              right: 1134,
+              bottom: 1134,
+              left: 1134,
+            },
+          },
+        },
+        children,
+      },
+    ],
+  });
+
+  const blob = await Packer.toBlob(doc);
+  const mapel = sanitizeFilenamePart(identitas.mata_pelajaran, 'Mapel');
+  const topik = sanitizeFilenamePart(analisis_pembelajaran.topik_materi, 'Modul_Ajar');
+  const filename = `Modul_Ajar_${mapel}_${topik}.docx`;
+  saveAs(blob, filename);
+  return filename;
+}
+
+// ============================================================================
+// PDF (.pdf) EXPORT — MODUL AJAR / RPM
+// ============================================================================
+
+function drawModulPdfSectionHeading(
+  doc: jsPDF,
+  title: string,
+  startY: number,
+  contentWidth: number
+): number {
+  let y = ensurePdfSpace(doc, startY, 16);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(15, 23, 42);
+  doc.text(title, PDF_MARGIN, y);
+  y += 2;
+  doc.setDrawColor(203, 213, 225);
+  doc.setLineWidth(0.35);
+  doc.line(PDF_MARGIN, y, PDF_MARGIN + contentWidth, y);
+  return y + 5.5;
+}
+
+function drawModulPdfSubHeading(
+  doc: jsPDF,
+  title: string,
+  startY: number
+): number {
+  const y = ensurePdfSpace(doc, startY, 12);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(15, 118, 110);
+  doc.text(title, PDF_MARGIN, y);
+  return y + 5;
+}
+
+function drawModulPdfBody(
+  doc: jsPDF,
+  text: string,
+  startY: number,
+  contentWidth: number,
+  bold = false
+): number {
+  const cleanText = (text || '-').trim() || '-';
+  doc.setFont('helvetica', bold ? 'bold' : 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(30, 41, 59);
+  const paragraphs = cleanText.split('\n');
+  let y = startY;
+  for (const para of paragraphs) {
+    if (para.trim().length === 0) {
+      y = ensurePdfSpace(doc, y, 4);
+      y += 3;
+      continue;
+    }
+    y = drawPdfWrappedText(doc, para, PDF_MARGIN, y, contentWidth, 5.2);
+  }
+  return y + 2;
+}
+
+function drawModulPdfList(
+  doc: jsPDF,
+  items: string[],
+  ordered: boolean,
+  startY: number,
+  contentWidth: number
+): number {
+  const safeItems = items.map((i) => (i || '').trim()).filter((i) => i.length > 0);
+  if (safeItems.length === 0) {
+    return drawModulPdfBody(doc, '-', startY, contentWidth);
+  }
+
+  let y = startY;
+  const textX = PDF_MARGIN + 8;
+  const textWidth = contentWidth - 8;
+  const lineHeight = 5.1;
+
+  safeItems.forEach((item, idx) => {
+    const prefix = ordered ? `${idx + 1}.` : '•';
+    const subLines = doc.splitTextToSize(item, textWidth) as string[];
+    const firstLineHeight = subLines.length > 0 ? lineHeight : lineHeight;
+
+    y = ensurePdfSpace(doc, y, firstLineHeight + 1);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(ordered ? 15 : 15, ordered ? 23 : 118, ordered ? 42 : 110);
+    doc.text(prefix, PDF_MARGIN + 1.5, y);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(30, 41, 59);
+
+    subLines.forEach((line, lineIdx) => {
+      if (lineIdx > 0) {
+        y = ensurePdfSpace(doc, y, lineHeight);
+      }
+      doc.text(line, textX, y);
+      y += lineHeight;
+    });
+
+    y += 1.2;
+  });
+
+  return y + 2;
+}
+
+export function exportModulAjarToPdf(modul: GeneratedModulAjarResult): string {
+  const {
+    identitas,
+    analisis_pembelajaran,
+    desain_pembelajaran,
+    pengalaman_belajar,
+    asesmen,
+  } = modul;
+
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const contentWidth = pageWidth - PDF_MARGIN * 2;
+  let y = PDF_MARGIN;
+
+  // Kop & Judul Modul
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text('MODUL AJAR / RENCANA PEMBELAJARAN MENDALAM', pageWidth / 2, y, {
+    align: 'center',
+  });
+  y += 6.5;
+
+  doc.setFontSize(14);
+  doc.setTextColor(15, 23, 42);
+  const titleLines = doc.splitTextToSize(
+    modul.judul_modul || 'Modul Ajar',
+    contentWidth
+  ) as string[];
+  for (const line of titleLines) {
+    doc.text(line, pageWidth / 2, y, { align: 'center' });
+    y += 6.5;
+  }
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text(
+    `${identitas.satuan_pendidikan || '-'} · ${identitas.mata_pelajaran || '-'} · ${identitas.kelas_semester || '-'}`,
+    pageWidth / 2,
+    y,
+    { align: 'center' }
+  );
+  y += 4;
+
+  doc.setDrawColor(203, 213, 225);
+  doc.setLineWidth(0.4);
+  doc.line(PDF_MARGIN, y, pageWidth - PDF_MARGIN, y);
+  y += 8;
+
+  // A. Identitas Modul (Tabel)
+  y = drawModulPdfSectionHeading(doc, 'A. Identitas Modul', y, contentWidth);
+
+  autoTable(doc, {
+    startY: y,
+    margin: { left: PDF_MARGIN, right: PDF_MARGIN },
+    theme: 'grid',
+    styles: {
+      font: 'helvetica',
+      fontSize: 9.5,
+      cellPadding: 2.8,
+      textColor: [30, 41, 59],
+      lineColor: [203, 213, 225],
+      lineWidth: 0.25,
+    },
+    columnStyles: {
+      0: { cellWidth: 38, fillColor: [241, 245, 249], fontStyle: 'bold', textColor: [15, 23, 42] },
+      1: { cellWidth: (contentWidth - 76) / 2 },
+      2: { cellWidth: 38, fillColor: [241, 245, 249], fontStyle: 'bold', textColor: [15, 23, 42] },
+      3: { cellWidth: (contentWidth - 76) / 2 },
+    },
+    body: [
+      [
+        'Satuan Pendidikan',
+        identitas.satuan_pendidikan || '-',
+        'Fase',
+        identitas.fase || '-',
+      ],
+      [
+        'Mata Pelajaran',
+        identitas.mata_pelajaran || '-',
+        'Alokasi Waktu',
+        identitas.alokasi_waktu || '-',
+      ],
+      [
+        'Kelas / Semester',
+        identitas.kelas_semester || '-',
+        'Jumlah Pertemuan',
+        identitas.jumlah_pertemuan || '-',
+      ],
+      [
+        'Penyusun',
+        { content: identitas.penyusun || '-', colSpan: 3 },
+      ],
+    ],
+  });
+
+  const tableEndY = (doc as JsPDFWithAutoTable).lastAutoTable?.finalY;
+  y = (tableEndY ?? y + 32) + 8;
+
+  // B. Analisis Pembelajaran
+  y = drawModulPdfSectionHeading(doc, 'B. Analisis Pembelajaran', y, contentWidth);
+  y = drawModulPdfSubHeading(doc, '1. Capaian Pembelajaran (CP)', y);
+  y = drawModulPdfBody(doc, analisis_pembelajaran.capaian_pembelajaran, y, contentWidth);
+
+  y = drawModulPdfSubHeading(doc, '2. Topik / Materi Pembelajaran', y);
+  y = drawModulPdfBody(doc, analisis_pembelajaran.topik_materi, y, contentWidth, true);
+
+  y = drawModulPdfSubHeading(doc, '3. Tujuan Pembelajaran (TP)', y);
+  y = drawModulPdfList(
+    doc,
+    analisis_pembelajaran.tujuan_pembelajaran || [],
+    true,
+    y,
+    contentWidth
+  );
+
+  y = drawModulPdfSubHeading(doc, '4. Karakteristik Murid', y);
+  y = drawModulPdfBody(
+    doc,
+    analisis_pembelajaran.karakteristik_murid?.trim() ||
+      'Umum / heterogen (tidak ada catatan khusus)',
+    y,
+    contentWidth
+  );
+  y += 2;
+
+  // C. Desain Pembelajaran
+  y = drawModulPdfSectionHeading(doc, 'C. Desain Pembelajaran', y, contentWidth);
+  y = drawModulPdfSubHeading(doc, '1. 8 Dimensi Profil Lulusan', y);
+  y = drawModulPdfList(
+    doc,
+    desain_pembelajaran.dimensi_profil_lulusan || [],
+    false,
+    y,
+    contentWidth
+  );
+
+  y = drawModulPdfSubHeading(doc, '2. Model Pembelajaran', y);
+  y = drawModulPdfBody(doc, desain_pembelajaran.model_pembelajaran, y, contentWidth, true);
+
+  y = drawModulPdfSubHeading(doc, '3. Metode Pembelajaran', y);
+  y = drawModulPdfList(
+    doc,
+    desain_pembelajaran.metode_pembelajaran || [],
+    false,
+    y,
+    contentWidth
+  );
+  y += 2;
+
+  // D. Pengalaman Belajar
+  y = drawModulPdfSectionHeading(doc, 'D. Pengalaman Belajar', y, contentWidth);
+  y = drawModulPdfSubHeading(doc, '1. Kegiatan Pendahuluan', y);
+  y = drawModulPdfList(
+    doc,
+    pengalaman_belajar.pendahuluan || [],
+    true,
+    y,
+    contentWidth
+  );
+
+  y = drawModulPdfSubHeading(doc, '2. Kegiatan Inti', y);
+  y = drawModulPdfList(
+    doc,
+    pengalaman_belajar.kegiatan_inti || [],
+    true,
+    y,
+    contentWidth
+  );
+
+  y = drawModulPdfSubHeading(doc, '3. Kegiatan Penutup', y);
+  y = drawModulPdfList(
+    doc,
+    pengalaman_belajar.penutup || [],
+    true,
+    y,
+    contentWidth
+  );
+  y += 2;
+
+  // E. Asesmen
+  y = drawModulPdfSectionHeading(doc, 'E. Asesmen', y, contentWidth);
+  y = drawModulPdfSubHeading(doc, '1. Jenis Asesmen', y);
+  y = drawModulPdfBody(doc, asesmen.jenis, y, contentWidth, true);
+
+  y = drawModulPdfSubHeading(doc, '2. Bentuk Instrumen & Teknik Penilaian', y);
+  y = drawModulPdfBody(doc, asesmen.bentuk_instrumen, y, contentWidth);
+
+  // Page footer numbers
+  const totalPages = doc.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(148, 163, 184);
+    doc.text(
+      `Halaman ${p} dari ${totalPages}`,
+      pageWidth - PDF_MARGIN,
+      pageHeight - 8,
+      { align: 'right' }
+    );
+  }
+
+  const mapel = sanitizeFilenamePart(identitas.mata_pelajaran, 'Mapel');
+  const topik = sanitizeFilenamePart(analisis_pembelajaran.topik_materi, 'Modul_Ajar');
+  const filename = `Modul_Ajar_${mapel}_${topik}.pdf`;
+  const blob = doc.output('blob');
+  saveAs(blob, filename);
+  return filename;
+}
+
+

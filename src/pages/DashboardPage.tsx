@@ -23,7 +23,7 @@ const MODULES = [
     description: 'Penyusunan Rencana Pembelajaran Mendalam dan Modul Ajar terstruktur.',
     path: '/administrasi/modul-ajar',
     icon: BookOpen,
-    available: false,
+    available: true,
   },
   {
     title: 'Analisis CP, TP dan ATP',

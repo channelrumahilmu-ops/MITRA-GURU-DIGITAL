@@ -31,6 +31,13 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isStringList(listVal, minLen, maxLen) {
+      return listVal is list
+        && listVal.size() >= minLen
+        && listVal.size() <= maxLen
+        && (listVal.size() == 0 || (listVal[0] is string && listVal[0].size() <= 3000));
+    }
+
     function isValidUserProfile(data, userId) {
       return data.keys().hasAll([
           'uid',
@@ -116,6 +123,156 @@ service cloud.firestore {
         && data.soal[0].pertanyaan.size() <= 10000;
     }
 
+    function isValidModulIdentitas(identitas) {
+      return identitas is map
+        && identitas.keys().hasAll([
+          'satuan_pendidikan',
+          'mata_pelajaran',
+          'kelas_semester',
+          'fase',
+          'alokasi_waktu',
+          'jumlah_pertemuan',
+          'penyusun'
+        ])
+        && identitas.keys().hasOnly([
+          'satuan_pendidikan',
+          'mata_pelajaran',
+          'kelas_semester',
+          'fase',
+          'alokasi_waktu',
+          'jumlah_pertemuan',
+          'penyusun'
+        ])
+        && identitas.satuan_pendidikan is string
+        && identitas.satuan_pendidikan.size() >= 1
+        && identitas.satuan_pendidikan.size() <= 200
+        && identitas.mata_pelajaran is string
+        && identitas.mata_pelajaran.size() >= 1
+        && identitas.mata_pelajaran.size() <= 150
+        && identitas.kelas_semester is string
+        && identitas.kelas_semester.size() >= 1
+        && identitas.kelas_semester.size() <= 100
+        && identitas.fase is string
+        && identitas.fase.size() >= 1
+        && identitas.fase.size() <= 50
+        && identitas.alokasi_waktu is string
+        && identitas.alokasi_waktu.size() >= 1
+        && identitas.alokasi_waktu.size() <= 120
+        && identitas.jumlah_pertemuan is string
+        && identitas.jumlah_pertemuan.size() >= 1
+        && identitas.jumlah_pertemuan.size() <= 100
+        && identitas.penyusun is string
+        && identitas.penyusun.size() >= 1
+        && identitas.penyusun.size() <= 150;
+    }
+
+    function isValidModulAnalisis(analisis) {
+      return analisis is map
+        && analisis.keys().hasAll([
+          'capaian_pembelajaran',
+          'topik_materi',
+          'tujuan_pembelajaran',
+          'karakteristik_murid'
+        ])
+        && analisis.keys().hasOnly([
+          'capaian_pembelajaran',
+          'topik_materi',
+          'tujuan_pembelajaran',
+          'karakteristik_murid'
+        ])
+        && analisis.capaian_pembelajaran is string
+        && analisis.capaian_pembelajaran.size() <= 5000
+        && analisis.topik_materi is string
+        && analisis.topik_materi.size() >= 1
+        && analisis.topik_materi.size() <= 500
+        && isStringList(analisis.tujuan_pembelajaran, 1, 30)
+        && analisis.karakteristik_murid is string
+        && analisis.karakteristik_murid.size() <= 3000;
+    }
+
+    function isValidModulDesain(desain) {
+      return desain is map
+        && desain.keys().hasAll([
+          'dimensi_profil_lulusan',
+          'model_pembelajaran',
+          'metode_pembelajaran'
+        ])
+        && desain.keys().hasOnly([
+          'dimensi_profil_lulusan',
+          'model_pembelajaran',
+          'metode_pembelajaran'
+        ])
+        && isStringList(desain.dimensi_profil_lulusan, 0, 10)
+        && desain.model_pembelajaran is string
+        && desain.model_pembelajaran.size() >= 1
+        && desain.model_pembelajaran.size() <= 150
+        && isStringList(desain.metode_pembelajaran, 0, 20);
+    }
+
+    function isValidModulPengalaman(pengalaman) {
+      return pengalaman is map
+        && pengalaman.keys().hasAll([
+          'pendahuluan',
+          'kegiatan_inti',
+          'penutup'
+        ])
+        && pengalaman.keys().hasOnly([
+          'pendahuluan',
+          'kegiatan_inti',
+          'penutup'
+        ])
+        && isStringList(pengalaman.pendahuluan, 1, 30)
+        && isStringList(pengalaman.kegiatan_inti, 1, 50)
+        && isStringList(pengalaman.penutup, 1, 30);
+    }
+
+    function isValidModulAsesmen(asesmen) {
+      return asesmen is map
+        && asesmen.keys().hasAll(['jenis', 'bentuk_instrumen'])
+        && asesmen.keys().hasOnly(['jenis', 'bentuk_instrumen'])
+        && asesmen.jenis is string
+        && asesmen.jenis.size() >= 1
+        && asesmen.jenis.size() <= 100
+        && asesmen.bentuk_instrumen is string
+        && asesmen.bentuk_instrumen.size() >= 1
+        && asesmen.bentuk_instrumen.size() <= 5000;
+    }
+
+    function isValidBankModul(data) {
+      return data.keys().hasAll([
+          'userId',
+          'createdAt',
+          'judul_modul',
+          'identitas',
+          'analisis_pembelajaran',
+          'desain_pembelajaran',
+          'pengalaman_belajar',
+          'asesmen'
+        ])
+        && data.keys().hasOnly([
+          'userId',
+          'createdAt',
+          'judul_modul',
+          'identitas',
+          'analisis_pembelajaran',
+          'desain_pembelajaran',
+          'pengalaman_belajar',
+          'asesmen'
+        ])
+        && data.userId is string
+        && data.userId == request.auth.uid
+        && isValidId(data.userId)
+        && data.createdAt is timestamp
+        && data.judul_modul is string
+        && data.judul_modul.size() >= 1
+        && data.judul_modul.size() <= 250
+        && isValidModulIdentitas(data.identitas)
+        && isValidModulAnalisis(data.analisis_pembelajaran)
+        && isValidModulDesain(data.desain_pembelajaran)
+        && isValidModulPengalaman(data.pengalaman_belajar)
+        && isValidModulAsesmen(data.asesmen);
+    }
+
     match /users/{userId} {
       allow get: if isSignedIn() && isValidId(userId) && isOwner(userId);
       allow list: if false;
@@ -158,6 +315,22 @@ service cloud.firestore {
       allow update: if false;
       allow delete: if isVerifiedUser()
         && isValidId(soalId)
+        && existing().userId == request.auth.uid;
+    }
+
+    match /bank_modul/{modulId} {
+      allow get: if isSignedIn()
+        && isValidId(modulId)
+        && existing().userId == request.auth.uid;
+      allow list: if isSignedIn()
+        && resource.data.userId == request.auth.uid;
+      allow create: if isVerifiedUser()
+        && isValidId(modulId)
+        && isValidBankModul(incoming())
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isVerifiedUser()
+        && isValidId(modulId)
         && existing().userId == request.auth.uid;
     }
   }
