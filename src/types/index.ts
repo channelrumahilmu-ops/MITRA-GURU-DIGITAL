@@ -122,3 +122,22 @@ export interface GeneratedExamResult {
   meta: GeneratedExamMeta;
   soal: GeneratedSoalItem[];
 }
+
+export interface BankSoalRecord {
+  id: string;
+  userId: string;
+  createdAt?: unknown;
+  meta: GeneratedExamMeta;
+  soal: GeneratedSoalItem[];
+}
+
+export const BANK_SOAL_LIMITS = {
+  meta: {
+    judulMaxLength: 200,
+    sekolahMaxLength: 200,
+    mapelMaxLength: 150,
+    kelasMaxLength: 100,
+  },
+  maxSoalCount: 100,
+  pertanyaanMaxLength: 10000,
+} as const;

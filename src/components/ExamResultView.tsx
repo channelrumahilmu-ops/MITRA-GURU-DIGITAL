@@ -1,17 +1,31 @@
 import { useEffect, useState } from 'react';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import {
   AlertTriangle,
   BookOpen,
+  CheckCircle2,
   CheckSquare,
+  Download,
   FileSpreadsheet,
+  FileText,
   KeyRound,
   LayoutGrid,
+  Loader2,
   Maximize2,
   Minimize2,
   RefreshCw,
   RotateCcw,
+  Save,
 } from 'lucide-react';
-import type { ExamIdentity, GeneratedExamResult, GeneratedSoalOptions } from '../types';
+import { useAuth } from '../context/AuthContext';
+import { db, handleFirestoreError, OperationType } from '../firebase';
+import {
+  BANK_SOAL_LIMITS,
+  type ExamIdentity,
+  type GeneratedExamResult,
+  type GeneratedSoalOptions,
+} from '../types';
+import { exportToPdf, exportToWord, type ExportScope } from '../utils/export';
 
 type ResultTab = 'naskah' | 'kunci' | 'kisi' | 'kartu';
 
@@ -40,8 +54,13 @@ export function ExamResultView({
   onReset,
   onRegenerate,
 }: ExamResultViewProps) {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<ResultTab>('naskah');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [exportingKey, setExportingKey] = useState<string | null>(null);
+  const [savingToBank, setSavingToBank] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isFullscreen) return;
@@ -60,6 +79,105 @@ export function ExamResultView({
   const metaKelas = result.meta?.kelas?.trim() || identity.kelas;
   const soalList = Array.isArray(result.soal) ? result.soal : [];
 
+  const handleExport = async (scope: ExportScope, format: 'word' | 'pdf') => {
+    const actionKey = `${scope}-${format}`;
+    setExportingKey(actionKey);
+    setActionError(null);
+    setActionSuccess(null);
+
+    try {
+      const filename =
+        format === 'word'
+          ? await exportToWord(result, identity, scope)
+          : exportToPdf(result, identity, scope);
+      setActionSuccess(`Dokumen berhasil diunduh: ${filename}`);
+    } catch (err) {
+      console.error('Export error:', err);
+      setActionError('Gagal mengekspor dokumen. Silakan coba lagi.');
+    } finally {
+      setExportingKey(null);
+    }
+  };
+
+  const handleSaveToBankSoal = async () => {
+    if (!user) {
+      setActionError('Sesi pengguna tidak ditemukan. Silakan masuk kembali.');
+      return;
+    }
+    if (soalList.length === 0) {
+      setActionError('Tidak ada soal yang dapat disimpan.');
+      return;
+    }
+
+    setSavingToBank(true);
+    setActionError(null);
+    setActionSuccess(null);
+
+    const payloadMeta = {
+      judul:
+        (metaJudul || 'Naskah Ujian')
+          .trim()
+          .slice(0, BANK_SOAL_LIMITS.meta.judulMaxLength) || 'Naskah Ujian',
+      sekolah:
+        (metaSekolah || '-')
+          .trim()
+          .slice(0, BANK_SOAL_LIMITS.meta.sekolahMaxLength) || '-',
+      mapel:
+        (metaMapel || '-')
+          .trim()
+          .slice(0, BANK_SOAL_LIMITS.meta.mapelMaxLength) || '-',
+      kelas:
+        (metaKelas || '-')
+          .trim()
+          .slice(0, BANK_SOAL_LIMITS.meta.kelasMaxLength) || '-',
+    };
+
+    const payloadSoal = soalList
+      .slice(0, BANK_SOAL_LIMITS.maxSoalCount)
+      .map((item, idx) => ({
+        no: typeof item.no === 'number' ? item.no : idx + 1,
+        tipe: String(item.tipe ?? ''),
+        stimulus: String(item.stimulus ?? ''),
+        pertanyaan:
+          String(item.pertanyaan ?? '').slice(
+            0,
+            BANK_SOAL_LIMITS.pertanyaanMaxLength
+          ) || '-',
+        opsi: {
+          A: String(item.opsi?.A ?? ''),
+          B: String(item.opsi?.B ?? ''),
+          C: String(item.opsi?.C ?? ''),
+          D: String(item.opsi?.D ?? ''),
+          E: String(item.opsi?.E ?? ''),
+        },
+        kunci: String(item.kunci ?? ''),
+        pembahasan: String(item.pembahasan ?? ''),
+        indikator: String(item.indikator ?? ''),
+        level_kognitif: String(item.level_kognitif ?? ''),
+        kesulitan: String(item.kesulitan ?? ''),
+      }));
+
+    try {
+      await addDoc(collection(db, 'bank_soal'), {
+        userId: user.uid,
+        createdAt: serverTimestamp(),
+        meta: payloadMeta,
+        soal: payloadSoal,
+      });
+      setActionSuccess('Berhasil disimpan ke Bank Soal!');
+    } catch (err) {
+      try {
+        handleFirestoreError(err, OperationType.CREATE, 'bank_soal');
+      } catch {
+        setActionError(
+          'Gagal menyimpan ke Bank Soal. Pastikan koneksi stabil dan akun terverifikasi.'
+        );
+      }
+    } finally {
+      setSavingToBank(false);
+    }
+  };
+
   const tabs: Array<{ id: ResultTab; label: string; icon: typeof BookOpen }> = [
     { id: 'naskah', label: 'Naskah Soal', icon: BookOpen },
     { id: 'kunci', label: 'Kunci & Pembahasan', icon: KeyRound },
@@ -70,6 +188,8 @@ export function ExamResultView({
   const containerClasses = isFullscreen
     ? 'fixed inset-0 z-50 bg-slate-50 overflow-y-auto p-4 sm:p-8'
     : 'space-y-5';
+
+  const isBusy = isRegenerating || exportingKey !== null || savingToBank;
 
   return (
     <section
@@ -112,11 +232,11 @@ export function ExamResultView({
               Total Butir Soal: <strong className="text-slate-900">{soalList.length}</strong>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={onReset}
-                disabled={isRegenerating}
+                disabled={isBusy}
                 className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60"
               >
                 <RotateCcw className="w-4 h-4 shrink-0" />
@@ -126,7 +246,7 @@ export function ExamResultView({
               <button
                 type="button"
                 onClick={onRegenerate}
-                disabled={isRegenerating}
+                disabled={isBusy}
                 className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium text-teal-800 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60"
               >
                 <RefreshCw
@@ -154,6 +274,104 @@ export function ExamResultView({
               </button>
             </div>
           </div>
+
+          {/* Tombol Simpan & Ekspor Word / PDF */}
+          <div className="pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
+            <span className="text-xs font-medium text-slate-500">
+              Simpan & Ekspor Dokumen
+            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void handleSaveToBankSoal()}
+                disabled={isBusy}
+                className="inline-flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-medium text-emerald-800 bg-emerald-50 border border-emerald-300 rounded-lg hover:bg-emerald-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60"
+              >
+                {savingToBank ? (
+                  <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                ) : (
+                  <Save className="w-4 h-4 shrink-0" />
+                )}
+                <span>{savingToBank ? 'Menyimpan...' : 'Simpan ke Bank Soal'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void handleExport(activeTab, 'word')}
+                disabled={isBusy}
+                className="inline-flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60"
+              >
+                {exportingKey === `${activeTab}-word` ? (
+                  <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                ) : (
+                  <FileText className="w-4 h-4 text-blue-700 shrink-0" />
+                )}
+                <span>Ekspor Tab Ini (Word)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void handleExport(activeTab, 'pdf')}
+                disabled={isBusy}
+                className="inline-flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60"
+              >
+                {exportingKey === `${activeTab}-pdf` ? (
+                  <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                ) : (
+                  <Download className="w-4 h-4 text-red-700 shrink-0" />
+                )}
+                <span>Ekspor Tab Ini (PDF)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void handleExport('all', 'word')}
+                disabled={isBusy}
+                className="inline-flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-medium text-white bg-teal-700 rounded-lg hover:bg-teal-800 transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60"
+              >
+                {exportingKey === 'all-word' ? (
+                  <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                ) : (
+                  <FileText className="w-4 h-4 shrink-0" />
+                )}
+                <span>Ekspor Semua (Word)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void handleExport('all', 'pdf')}
+                disabled={isBusy}
+                className="inline-flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-medium text-white bg-slate-800 rounded-lg hover:bg-slate-900 transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60"
+              >
+                {exportingKey === 'all-pdf' ? (
+                  <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                ) : (
+                  <Download className="w-4 h-4 shrink-0" />
+                )}
+                <span>Ekspor Semua (PDF)</span>
+              </button>
+            </div>
+          </div>
+
+          {actionError && (
+            <div
+              role="alert"
+              className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800"
+            >
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>{actionError}</span>
+            </div>
+          )}
+
+          {actionSuccess && (
+            <div
+              role="status"
+              className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs font-medium text-emerald-800"
+            >
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>{actionSuccess}</span>
+            </div>
+          )}
         </div>
 
         {/* Kotak Peringatan Wajib */}

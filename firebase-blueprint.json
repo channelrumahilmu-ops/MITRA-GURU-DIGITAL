@@ -77,6 +77,62 @@
         "createdAt",
         "updatedAt"
       ]
+    },
+    "BankSoalMeta": {
+      "title": "Metadata Paket Soal",
+      "description": "Informasi identitas paket soal yang disimpan ke Bank Soal.",
+      "type": "object",
+      "properties": {
+        "judul": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "sekolah": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "mapel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 150
+        },
+        "kelas": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        }
+      },
+      "required": ["judul", "sekolah", "mapel", "kelas"]
+    },
+    "BankSoalDocument": {
+      "title": "Dokumen Bank Soal",
+      "description": "Paket soal hasil generator yang disimpan guru ke koleksi bank_soal.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Authentication UID pemilik paket soal.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp server saat paket soal disimpan."
+        },
+        "meta": {
+          "$ref": "#/entities/BankSoalMeta",
+          "description": "Metadata ujian."
+        },
+        "soal": {
+          "type": "array",
+          "description": "Daftar butir soal (maksimal 100 butir per paket)."
+        }
+      },
+      "required": ["userId", "createdAt", "meta", "soal"]
     }
   },
   "firestore": {
@@ -85,6 +141,12 @@
         "$ref": "#/entities/UserProfile"
       },
       "description": "Dokumen profil guru pribadi yang diindeks dengan Firebase UID."
+    },
+    "/bank_soal/{soalId}": {
+      "schema": {
+        "$ref": "#/entities/BankSoalDocument"
+      },
+      "description": "Koleksi paket soal tersimpan milik masing-masing guru."
     }
   }
 }

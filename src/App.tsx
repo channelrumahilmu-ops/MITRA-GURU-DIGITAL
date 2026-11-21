@@ -13,6 +13,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { ProfilPage } from './pages/ProfilPage';
 import { AdministrasiPlaceholderPage } from './pages/AdministrasiPlaceholderPage';
 import { GeneratorSoalPage } from './pages/GeneratorSoalPage';
+import { BankSoalPage } from './pages/BankSoalPage';
 
 function ProtectedShell({ children }: { children: React.ReactNode }) {
   return (
@@ -92,7 +93,7 @@ export default function App() {
               path="/administrasi/bank-soal"
               element={
                 <ProtectedShell>
-                  <AdministrasiPlaceholderPage name="Bank Soal" />
+                  <BankSoalPage />
                 </ProtectedShell>
               }
             />

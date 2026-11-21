@@ -58,7 +58,7 @@ const MODULES = [
     description: 'Arsip soal terklasifikasi berdasarkan mata pelajaran dan kelas.',
     path: '/administrasi/bank-soal',
     icon: Archive,
-    available: false,
+    available: true,
   },
 ] as const;
 

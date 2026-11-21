@@ -82,6 +82,40 @@ service cloud.firestore {
         && data.updatedAt is timestamp;
     }
 
+    function isValidBankSoalMeta(meta) {
+      return meta is map
+        && meta.keys().hasAll(['judul', 'sekolah', 'mapel', 'kelas'])
+        && meta.keys().hasOnly(['judul', 'sekolah', 'mapel', 'kelas'])
+        && meta.judul is string
+        && meta.judul.size() >= 1
+        && meta.judul.size() <= 200
+        && meta.sekolah is string
+        && meta.sekolah.size() >= 1
+        && meta.sekolah.size() <= 200
+        && meta.mapel is string
+        && meta.mapel.size() >= 1
+        && meta.mapel.size() <= 150
+        && meta.kelas is string
+        && meta.kelas.size() >= 1
+        && meta.kelas.size() <= 100;
+    }
+
+    function isValidBankSoal(data) {
+      return data.keys().hasAll(['userId', 'createdAt', 'meta', 'soal'])
+        && data.keys().hasOnly(['userId', 'createdAt', 'meta', 'soal'])
+        && data.userId is string
+        && data.userId == request.auth.uid
+        && isValidId(data.userId)
+        && data.createdAt is timestamp
+        && isValidBankSoalMeta(data.meta)
+        && data.soal is list
+        && data.soal.size() >= 1
+        && data.soal.size() <= 100
+        && data.soal[0] is map
+        && data.soal[0].pertanyaan is string
+        && data.soal[0].pertanyaan.size() <= 10000;
+    }
+
     match /users/{userId} {
       allow get: if isSignedIn() && isValidId(userId) && isOwner(userId);
       allow list: if false;
@@ -109,6 +143,22 @@ service cloud.firestore {
           'updatedAt'
         ]);
       allow delete: if false;
+    }
+
+    match /bank_soal/{soalId} {
+      allow get: if isSignedIn()
+        && isValidId(soalId)
+        && existing().userId == request.auth.uid;
+      allow list: if isSignedIn()
+        && resource.data.userId == request.auth.uid;
+      allow create: if isVerifiedUser()
+        && isValidId(soalId)
+        && isValidBankSoal(incoming())
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isVerifiedUser()
+        && isValidId(soalId)
+        && existing().userId == request.auth.uid;
     }
   }
 }
