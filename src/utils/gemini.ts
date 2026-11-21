@@ -214,6 +214,59 @@ export const MODUL_AJAR_JSON_SCHEMA: Schema = {
   ],
 };
 
+export const LKPD_JSON_SCHEMA: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    judul: { type: Type.STRING },
+    identitas: {
+      type: Type.OBJECT,
+      properties: {
+        sekolah: { type: Type.STRING },
+        mata_pelajaran: { type: Type.STRING },
+        kelas: { type: Type.STRING },
+        topik: { type: Type.STRING },
+        tujuan: { type: Type.STRING },
+      },
+      required: ['sekolah', 'mata_pelajaran', 'kelas', 'topik', 'tujuan'],
+    },
+    petunjuk_umum: { type: Type.STRING },
+    kegiatan: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          judul_kegiatan: { type: Type.STRING },
+          langkah_kerja: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+          },
+          tabel_data: { type: Type.STRING },
+        },
+        required: ['judul_kegiatan', 'langkah_kerja'],
+      },
+    },
+    rubrik_penilaian: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          aspek: { type: Type.STRING },
+          indikator: { type: Type.STRING },
+          skor_maksimal: { type: Type.INTEGER },
+        },
+        required: ['aspek', 'indikator', 'skor_maksimal'],
+      },
+    },
+  },
+  required: [
+    'judul',
+    'identitas',
+    'petunjuk_umum',
+    'kegiatan',
+    'rubrik_penilaian',
+  ],
+};
+
 async function invokeGeminiWithTimeout(
   apiKey: string,
   prompt: string,

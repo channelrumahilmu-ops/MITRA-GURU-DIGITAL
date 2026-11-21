@@ -15,6 +15,7 @@ import { AdministrasiPlaceholderPage } from './pages/AdministrasiPlaceholderPage
 import { GeneratorSoalPage } from './pages/GeneratorSoalPage';
 import { BankSoalPage } from './pages/BankSoalPage';
 import { ModulAjarPage } from './pages/ModulAjarPage';
+import { LkpdPage } from './pages/LkpdPage';
 
 function ProtectedShell({ children }: { children: React.ReactNode }) {
   return (
@@ -70,7 +71,7 @@ export default function App() {
               path="/administrasi/lkpd"
               element={
                 <ProtectedShell>
-                  <AdministrasiPlaceholderPage name="Generator LKPD" />
+                  <LkpdPage />
                 </ProtectedShell>
               }
             />

@@ -37,7 +37,7 @@ const MODULES = [
     description: 'Perancangan Lembar Kerja Peserta Didik beserta rubrik penilaian.',
     path: '/administrasi/lkpd',
     icon: FileSpreadsheet,
-    available: false,
+    available: true,
   },
   {
     title: 'Modul Kokurikuler',

@@ -227,3 +227,44 @@ export const BANK_MODUL_LIMITS = {
   itemStringMaxLength: 3000,
 } as const;
 
+export interface LkpdFormValues {
+  judulLkpd: string;
+  satuanPendidikan: string;
+  mataPelajaran: string;
+  kelasSemester: string;
+  topikMateri: string;
+  tujuanPembelajaran: string;
+  jenisKegiatan: string;
+  jumlahKegiatan: number;
+  durasiPengerjaan: string;
+  diferensiasi: string;
+  catatanTambahan: string;
+}
+
+export interface GeneratedLkpdKegiatan {
+  judul_kegiatan: string;
+  langkah_kerja: string[];
+  tabel_data?: string;
+}
+
+export interface GeneratedLkpdRubrikItem {
+  aspek: string;
+  indikator: string;
+  skor_maksimal: number;
+}
+
+export interface GeneratedLkpdResult {
+  judul: string;
+  identitas: {
+    sekolah: string;
+    mata_pelajaran: string;
+    kelas: string;
+    topik: string;
+    tujuan: string;
+  };
+  petunjuk_umum: string;
+  kegiatan: GeneratedLkpdKegiatan[];
+  rubrik_penilaian: GeneratedLkpdRubrikItem[];
+}
+
+

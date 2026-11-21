@@ -18,6 +18,7 @@ import { saveAs } from 'file-saver';
 import type {
   ExamIdentity,
   GeneratedExamResult,
+  GeneratedLkpdResult,
   GeneratedModulAjarResult,
   GeneratedSoalItem,
   GeneratedSoalOptions,
@@ -1582,5 +1583,619 @@ export function exportModulAjarToPdf(modul: GeneratedModulAjarResult): string {
   saveAs(blob, filename);
   return filename;
 }
+
+// ============================================================================
+// HELPER TABEL DATA LKPD
+// ============================================================================
+
+export interface ParsedPipeTable {
+  headers: string[];
+  rows: string[][];
+}
+
+export function parsePipeTable(raw?: string): ParsedPipeTable | null {
+  if (!raw || typeof raw !== 'string') return null;
+  const lines = raw
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && line.includes('|'));
+
+  if (lines.length < 2) return null;
+
+  const splitRow = (line: string): string[] => {
+    const trimmed = line.replace(/^\|/, '').replace(/\|$/, '');
+    return trimmed.split('|').map((cell) => cell.trim());
+  };
+
+  const isSeparatorRow = (cells: string[]): boolean =>
+    cells.length > 0 && cells.every((c) => /^:?-{2,}:?$/.test(c));
+
+  const headerCells = splitRow(lines[0]);
+  if (headerCells.length < 2) return null;
+
+  const dataLines = lines.slice(1).filter((line) => !isSeparatorRow(splitRow(line)));
+  const rows = dataLines.map((line) => {
+    const cells = splitRow(line);
+    while (cells.length < headerCells.length) {
+      cells.push('');
+    }
+    return cells.slice(0, headerCells.length);
+  });
+
+  if (rows.length === 0) {
+    rows.push(headerCells.map(() => ''));
+    rows.push(headerCells.map(() => ''));
+    rows.push(headerCells.map(() => ''));
+  }
+
+  return { headers: headerCells, rows };
+}
+
+// ============================================================================
+// WORD (.docx) EXPORT — LKPD
+// ============================================================================
+
+function makeLkpdAnswerSpaceParagraphs(lineCount = 5): Paragraph[] {
+  const paragraphs: Paragraph[] = [
+    new Paragraph({
+      spacing: { before: 140, after: 40 },
+      children: [
+        new TextRun({
+          text: 'Ruang Jawaban / Hasil Pengamatan:',
+          bold: true,
+          size: 19,
+          color: '475569',
+        }),
+      ],
+    }),
+  ];
+
+  for (let i = 0; i < lineCount; i++) {
+    paragraphs.push(
+      new Paragraph({
+        spacing: { before: 160, after: 140 },
+        border: {
+          bottom: {
+            style: BorderStyle.DOTTED,
+            size: 6,
+            color: '94A3B8',
+          },
+        },
+        children: [new TextRun({ text: ' ', size: 20 })],
+      })
+    );
+  }
+
+  return paragraphs;
+}
+
+export async function exportLkpdToWord(
+  lkpd: GeneratedLkpdResult,
+  durasi?: string
+): Promise<string> {
+  const { identitas, petunjuk_umum, kegiatan, rubrik_penilaian } = lkpd;
+
+  const identitasTable = new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: FULL_TABLE_BORDERS,
+    rows: [
+      new TableRow({
+        children: [
+          makeCell('Satuan Pendidikan', { header: true, widthPct: 22 }),
+          makeCell(identitas.sekolah || '-', { widthPct: 28 }),
+          makeCell('Mata Pelajaran', { header: true, widthPct: 22 }),
+          makeCell(identitas.mata_pelajaran || '-', { widthPct: 28 }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          makeCell('Kelas / Semester', { header: true }),
+          makeCell(identitas.kelas || '-'),
+          makeCell('Durasi Pengerjaan', { header: true }),
+          makeCell(durasi?.trim() || '-'),
+        ],
+      }),
+      new TableRow({
+        children: [
+          makeCell('Topik / Materi', { header: true }),
+          makeCell(identitas.topik || '-', { columnSpan: 3 }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          makeCell('Nama Siswa / Kelompok', { header: true }),
+          makeCell('....................................................'),
+          makeCell('Tanggal', { header: true }),
+          makeCell('....................................'),
+        ],
+      }),
+    ],
+  });
+
+  const children: Array<Paragraph | Table> = [
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 60 },
+      children: [
+        new TextRun({
+          text: 'LEMBAR KERJA PESERTA DIDIK (LKPD)',
+          bold: true,
+          size: 22,
+          color: '475569',
+        }),
+      ],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 200 },
+      children: [
+        new TextRun({
+          text: lkpd.judul || 'Lembar Kerja Peserta Didik',
+          bold: true,
+          size: 28,
+          color: '0F172A',
+        }),
+      ],
+    }),
+
+    makeSectionHeading('A. Identitas LKPD'),
+    identitasTable,
+
+    makeSectionHeading('B. Tujuan Pembelajaran'),
+    makeBodyParagraph(identitas.tujuan || '-'),
+
+    makeSectionHeading('C. Petunjuk Umum'),
+    ...(petunjuk_umum || '-')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+      .map((line) => makeBodyParagraph(line)),
+
+    makeSectionHeading('D. Kegiatan Pembelajaran'),
+  ];
+
+  const safeKegiatan = Array.isArray(kegiatan) ? kegiatan : [];
+  safeKegiatan.forEach((keg, index) => {
+    children.push(
+      makeSubHeading(`Kegiatan ${index + 1}: ${keg.judul_kegiatan || `Aktivitas ${index + 1}`}`)
+    );
+    children.push(
+      new Paragraph({
+        spacing: { before: 40, after: 40 },
+        children: [
+          new TextRun({
+            text: 'Langkah Kerja:',
+            bold: true,
+            size: 20,
+            color: '0F172A',
+          }),
+        ],
+      })
+    );
+    children.push(...makeNumberedList(keg.langkah_kerja || []));
+
+    const parsedTable = parsePipeTable(keg.tabel_data);
+    if (parsedTable) {
+      children.push(
+        new Paragraph({
+          spacing: { before: 100, after: 60 },
+          children: [
+            new TextRun({
+              text: 'Tabel Data / Pengamatan:',
+              bold: true,
+              size: 20,
+              color: '0F172A',
+            }),
+          ],
+        })
+      );
+
+      const colWidth = Math.floor(100 / parsedTable.headers.length);
+      children.push(
+        new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          borders: FULL_TABLE_BORDERS,
+          rows: [
+            new TableRow({
+              tableHeader: true,
+              children: parsedTable.headers.map((h) =>
+                makeCell(h, { header: true, widthPct: colWidth })
+              ),
+            }),
+            ...parsedTable.rows.map(
+              (row) =>
+                new TableRow({
+                  children: row.map((cell) => makeCell(cell || ' ')),
+                })
+            ),
+          ],
+        })
+      );
+    } else if (keg.tabel_data && keg.tabel_data.trim().length > 0) {
+      children.push(
+        new Paragraph({
+          spacing: { before: 100, after: 40 },
+          children: [
+            new TextRun({
+              text: 'Data / Catatan Pengamatan:',
+              bold: true,
+              size: 20,
+              color: '0F172A',
+            }),
+          ],
+        })
+      );
+      children.push(makeBodyParagraph(keg.tabel_data.trim()));
+    }
+
+    children.push(...makeLkpdAnswerSpaceParagraphs(5));
+  });
+
+  children.push(makeSectionHeading('E. Rubrik Penilaian'));
+
+  const safeRubrik = Array.isArray(rubrik_penilaian) ? rubrik_penilaian : [];
+  const totalSkor = safeRubrik.reduce(
+    (sum, item) => sum + (Number.isFinite(item.skor_maksimal) ? Number(item.skor_maksimal) : 0),
+    0
+  );
+
+  const rubrikTable = new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: FULL_TABLE_BORDERS,
+    rows: [
+      new TableRow({
+        tableHeader: true,
+        children: [
+          makeCell('No', { header: true, widthPct: 8, align: AlignmentType.CENTER }),
+          makeCell('Aspek Penilaian', { header: true, widthPct: 26 }),
+          makeCell('Indikator Penilaian', { header: true, widthPct: 50 }),
+          makeCell('Skor Maks', { header: true, widthPct: 16, align: AlignmentType.CENTER }),
+        ],
+      }),
+      ...safeRubrik.map(
+        (item, idx) =>
+          new TableRow({
+            children: [
+              makeCell(String(idx + 1), { align: AlignmentType.CENTER }),
+              makeCell(item.aspek || '-', { bold: true }),
+              makeCell(item.indikator || '-'),
+              makeCell(String(item.skor_maksimal ?? 0), { align: AlignmentType.CENTER }),
+            ],
+          })
+      ),
+      new TableRow({
+        children: [
+          makeCell('Total Skor Maksimal', {
+            header: true,
+            columnSpan: 3,
+            align: AlignmentType.RIGHT,
+          }),
+          makeCell(String(totalSkor), {
+            header: true,
+            align: AlignmentType.CENTER,
+          }),
+        ],
+      }),
+    ],
+  });
+
+  children.push(rubrikTable);
+
+  const doc = new Document({
+    sections: [
+      {
+        properties: {
+          page: {
+            margin: {
+              top: 1134,
+              right: 1134,
+              bottom: 1134,
+              left: 1134,
+            },
+          },
+        },
+        children,
+      },
+    ],
+  });
+
+  const blob = await Packer.toBlob(doc);
+  const mapel = sanitizeFilenamePart(identitas.mata_pelajaran, 'Mapel');
+  const topik = sanitizeFilenamePart(identitas.topik, 'LKPD');
+  const filename = `LKPD_${mapel}_${topik}.docx`;
+  saveAs(blob, filename);
+  return filename;
+}
+
+// ============================================================================
+// PDF (.pdf) EXPORT — LKPD
+// ============================================================================
+
+function drawLkpdAnswerBoxPdf(
+  doc: jsPDF,
+  startY: number,
+  contentWidth: number,
+  lineCount = 5
+): number {
+  const lineGap = 8;
+  const headerGap = 6;
+  const boxPaddingBottom = 4;
+  const totalNeeded = headerGap + lineCount * lineGap + boxPaddingBottom + 4;
+
+  let y = ensurePdfSpace(doc, startY, totalNeeded);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text('Ruang Jawaban / Hasil Pengamatan Siswa:', PDF_MARGIN, y);
+  y += 3;
+
+  const boxHeight = lineCount * lineGap + boxPaddingBottom;
+  doc.setDrawColor(203, 213, 225);
+  doc.setFillColor(248, 250, 252);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(PDF_MARGIN, y, contentWidth, boxHeight, 1.5, 1.5, 'FD');
+
+  doc.setDrawColor(203, 213, 225);
+  doc.setLineWidth(0.22);
+  for (let i = 1; i <= lineCount; i++) {
+    const lineY = y + i * lineGap;
+    doc.line(PDF_MARGIN + 4, lineY, PDF_MARGIN + contentWidth - 4, lineY);
+  }
+
+  return y + boxHeight + 6;
+}
+
+export function exportLkpdToPdf(
+  lkpd: GeneratedLkpdResult,
+  durasi?: string
+): string {
+  const { identitas, petunjuk_umum, kegiatan, rubrik_penilaian } = lkpd;
+
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const contentWidth = pageWidth - PDF_MARGIN * 2;
+  let y = PDF_MARGIN;
+
+  // Header
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(71, 85, 105);
+  doc.text('LEMBAR KERJA PESERTA DIDIK (LKPD)', pageWidth / 2, y, {
+    align: 'center',
+  });
+  y += 6.5;
+
+  doc.setFontSize(14);
+  doc.setTextColor(15, 23, 42);
+  const titleLines = doc.splitTextToSize(
+    lkpd.judul || 'Lembar Kerja Peserta Didik',
+    contentWidth
+  ) as string[];
+  for (const line of titleLines) {
+    doc.text(line, pageWidth / 2, y, { align: 'center' });
+    y += 6.5;
+  }
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text(
+    `${identitas.sekolah || '-'} · ${identitas.mata_pelajaran || '-'} · ${identitas.kelas || '-'}`,
+    pageWidth / 2,
+    y,
+    { align: 'center' }
+  );
+  y += 4;
+
+  doc.setDrawColor(203, 213, 225);
+  doc.setLineWidth(0.4);
+  doc.line(PDF_MARGIN, y, pageWidth - PDF_MARGIN, y);
+  y += 8;
+
+  // A. Identitas LKPD
+  y = drawModulPdfSectionHeading(doc, 'A. Identitas LKPD', y, contentWidth);
+
+  autoTable(doc, {
+    startY: y,
+    margin: { left: PDF_MARGIN, right: PDF_MARGIN },
+    theme: 'grid',
+    styles: {
+      font: 'helvetica',
+      fontSize: 9.5,
+      cellPadding: 2.8,
+      textColor: [30, 41, 59],
+      lineColor: [203, 213, 225],
+      lineWidth: 0.25,
+    },
+    columnStyles: {
+      0: { cellWidth: 38, fillColor: [241, 245, 249], fontStyle: 'bold', textColor: [15, 23, 42] },
+      1: { cellWidth: (contentWidth - 76) / 2 },
+      2: { cellWidth: 38, fillColor: [241, 245, 249], fontStyle: 'bold', textColor: [15, 23, 42] },
+      3: { cellWidth: (contentWidth - 76) / 2 },
+    },
+    body: [
+      [
+        'Satuan Pendidikan',
+        identitas.sekolah || '-',
+        'Mata Pelajaran',
+        identitas.mata_pelajaran || '-',
+      ],
+      [
+        'Kelas / Semester',
+        identitas.kelas || '-',
+        'Durasi Pengerjaan',
+        durasi?.trim() || '-',
+      ],
+      [
+        'Topik / Materi',
+        { content: identitas.topik || '-', colSpan: 3 },
+      ],
+      [
+        'Nama / Kelompok',
+        '........................................',
+        'Tanggal',
+        '............................',
+      ],
+    ],
+  });
+
+  y = ((doc as JsPDFWithAutoTable).lastAutoTable?.finalY ?? y + 32) + 8;
+
+  // B. Tujuan Pembelajaran
+  y = drawModulPdfSectionHeading(doc, 'B. Tujuan Pembelajaran', y, contentWidth);
+  y = drawModulPdfBody(doc, identitas.tujuan || '-', y, contentWidth);
+  y += 2;
+
+  // C. Petunjuk Umum
+  y = drawModulPdfSectionHeading(doc, 'C. Petunjuk Umum', y, contentWidth);
+  y = drawModulPdfBody(doc, petunjuk_umum || '-', y, contentWidth);
+  y += 2;
+
+  // D. Kegiatan Pembelajaran
+  y = drawModulPdfSectionHeading(doc, 'D. Kegiatan Pembelajaran', y, contentWidth);
+  const safeKegiatan = Array.isArray(kegiatan) ? kegiatan : [];
+
+  safeKegiatan.forEach((keg, idx) => {
+    y = drawModulPdfSubHeading(
+      doc,
+      `Kegiatan ${idx + 1}: ${keg.judul_kegiatan || `Aktivitas ${idx + 1}`}`,
+      y
+    );
+
+    y = ensurePdfSpace(doc, y, 8);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text('Langkah Kerja:', PDF_MARGIN, y);
+    y += 5;
+
+    y = drawModulPdfList(doc, keg.langkah_kerja || [], true, y, contentWidth);
+
+    const parsedTable = parsePipeTable(keg.tabel_data);
+    if (parsedTable) {
+      y = ensurePdfSpace(doc, y, 16);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text('Tabel Data / Pengamatan:', PDF_MARGIN, y);
+      y += 4;
+
+      autoTable(doc, {
+        startY: y,
+        margin: { left: PDF_MARGIN, right: PDF_MARGIN },
+        theme: 'grid',
+        headStyles: {
+          fillColor: [241, 245, 249],
+          textColor: [15, 23, 42],
+          fontStyle: 'bold',
+          fontSize: 9,
+          lineColor: [203, 213, 225],
+          lineWidth: 0.25,
+        },
+        bodyStyles: {
+          textColor: [30, 41, 59],
+          fontSize: 9,
+          minCellHeight: 8,
+          lineColor: [203, 213, 225],
+          lineWidth: 0.25,
+        },
+        head: [parsedTable.headers],
+        body: parsedTable.rows,
+      });
+
+      y = ((doc as JsPDFWithAutoTable).lastAutoTable?.finalY ?? y + 20) + 6;
+    } else if (keg.tabel_data && keg.tabel_data.trim().length > 0) {
+      y = ensurePdfSpace(doc, y, 10);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text('Data / Catatan Pengamatan:', PDF_MARGIN, y);
+      y += 5;
+      y = drawModulPdfBody(doc, keg.tabel_data.trim(), y, contentWidth);
+    }
+
+    y = drawLkpdAnswerBoxPdf(doc, y, contentWidth, 5);
+  });
+
+  // E. Rubrik Penilaian
+  y = drawModulPdfSectionHeading(doc, 'E. Rubrik Penilaian', y, contentWidth);
+  const safeRubrik = Array.isArray(rubrik_penilaian) ? rubrik_penilaian : [];
+  const totalSkor = safeRubrik.reduce(
+    (sum, item) => sum + (Number.isFinite(item.skor_maksimal) ? Number(item.skor_maksimal) : 0),
+    0
+  );
+
+  autoTable(doc, {
+    startY: y,
+    margin: { left: PDF_MARGIN, right: PDF_MARGIN },
+    theme: 'grid',
+    headStyles: {
+      fillColor: [241, 245, 249],
+      textColor: [15, 23, 42],
+      fontStyle: 'bold',
+      fontSize: 9.5,
+      lineColor: [203, 213, 225],
+      lineWidth: 0.25,
+    },
+    bodyStyles: {
+      textColor: [30, 41, 59],
+      fontSize: 9,
+      valign: 'top',
+      lineColor: [203, 213, 225],
+      lineWidth: 0.25,
+    },
+    columnStyles: {
+      0: { cellWidth: 12, halign: 'center', fontStyle: 'bold' },
+      1: { cellWidth: 42, fontStyle: 'bold' },
+      2: { cellWidth: 'auto' },
+      3: { cellWidth: 24, halign: 'center', fontStyle: 'bold' },
+    },
+    head: [['No', 'Aspek Penilaian', 'Indikator Pencapaian', 'Skor Maks']],
+    body: [
+      ...safeRubrik.map((item, idx) => [
+        String(idx + 1),
+        item.aspek || '-',
+        item.indikator || '-',
+        String(item.skor_maksimal ?? 0),
+      ]),
+      [
+        {
+          content: 'Total Skor Maksimal',
+          colSpan: 3,
+          styles: { halign: 'right', fontStyle: 'bold', fillColor: [241, 245, 249] },
+        },
+        {
+          content: String(totalSkor),
+          styles: { halign: 'center', fontStyle: 'bold', fillColor: [241, 245, 249] },
+        },
+      ],
+    ],
+  });
+
+  // Page footer numbers
+  const totalPages = doc.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(148, 163, 184);
+    doc.text(
+      `Halaman ${p} dari ${totalPages}`,
+      pageWidth - PDF_MARGIN,
+      pageHeight - 8,
+      { align: 'right' }
+    );
+  }
+
+  const mapel = sanitizeFilenamePart(identitas.mata_pelajaran, 'Mapel');
+  const topik = sanitizeFilenamePart(identitas.topik, 'LKPD');
+  const filename = `LKPD_${mapel}_${topik}.pdf`;
+  const blob = doc.output('blob');
+  saveAs(blob, filename);
+  return filename;
+}
+
 
 
